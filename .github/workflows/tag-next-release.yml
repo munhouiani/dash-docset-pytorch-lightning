@@ -1,0 +1,35 @@
+name: Tag Next Release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        required: true
+
+jobs:
+  main:
+    name: Tag Next Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - id: before-version-update
+        name: get current version
+        run: 'echo ::set-output "name=version::$(cat version/pytorch-lightning)"'
+      - name: set version
+        run: echo "${{github.event.inputs.version}}" > version/pytorch-lightning
+      - id: after-version-update
+        name: get new version
+        run: 'echo ::set-output "name=version::$(cat version/pytorch-lightning)"'
+      - name: push tag
+        if: ${{ steps.before-version-update.outputs.version != steps.after-version-update.outputs.version }}
+        run: |
+          git config --global user.email "${{ secrets.CI_USER_EMAIL }}"
+          git config --global user.name  "${{ secrets.CI_USER_NAME }}"
+          git add .
+          git commit -m "v${{ steps.after-version-update.outputs.version }}"
+          git tag v${{ steps.after-version-update.outputs.version }}
+          git push \
+              "https://${{ secrets.CI_USER_USERNAME }}:${{ secrets.CI_USER_ACCESS_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" \
+              HEAD:main \
+              --tags
